@@ -1,15 +1,13 @@
-FROM php:8.3.17-fpm-alpine
+FROM php:8.4-fpm-alpine
 
-# persistent dependencies
+# persistent dependencies and iconv fix
 RUN set -eux; \
     apk add --no-cache \
         bash \
         ghostscript \
         imagemagick \
-        ffmpeg
-
-# fix work iconv library with alpine
-RUN apk add --no-cache gnu-libiconv
+        ffmpeg \
+        gnu-libiconv
 ENV LD_PRELOAD /usr/lib/preloadable_libiconv.so php
 
 # install the PHP extensions we need
