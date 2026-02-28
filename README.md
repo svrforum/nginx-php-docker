@@ -6,8 +6,8 @@ CMS/웹앱(WordPress, Rhymix 등) 워크로드에 최적화된 PHP-FPM + Nginx D
 
 | 이미지 | 태그 | 설명 |
 |--------|------|------|
-| `dalso/ds-php-fpm` | `8.5-alpine` | PHP 8.5 FPM + OPcache/JIT 최적화 |
-| `dalso/ds-nginx` | `1.28-alpine` | Nginx 1.28 + logrotate |
+| `svrforum/ds-php-fpm` | `8.5` | PHP 8.5 FPM + OPcache/JIT 최적화 |
+| `svrforum/ds-nginx` | `1.28` | Nginx 1.28 + logrotate |
 
 ### 지원 플랫폼
 
@@ -34,12 +34,12 @@ CMS/웹앱(WordPress, Rhymix 등) 워크로드에 최적화된 PHP-FPM + Nginx D
 ```yaml
 services:
   php-fpm:
-    image: dalso/ds-php-fpm:8.5-alpine
+    image: svrforum/ds-php-fpm:8.5
     volumes:
       - ./src:/var/www/html
 
   nginx:
-    image: dalso/ds-nginx:1.28-alpine
+    image: svrforum/ds-nginx:1.28
     ports:
       - "80:80"
     volumes:

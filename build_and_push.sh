@@ -4,10 +4,10 @@
 set -e
 
 # Define image names and tags
-PHP_FPM_IMAGE="dalso/ds-php-fpm"
-PHP_FPM_TAG="8.5-alpine"
-NGINX_IMAGE="dalso/ds-nginx"
-NGINX_TAG="1.28-alpine"
+PHP_FPM_IMAGE="svrforum/ds-php-fpm"
+PHP_FPM_TAG="8.5"
+NGINX_IMAGE="svrforum/ds-nginx"
+NGINX_TAG="1.28"
 PLATFORMS="linux/amd64,linux/arm64"
 
 echo "Building Docker images..."

@@ -36,9 +36,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            dalso/ds-php-fpm:8.5-alpine
-            dalso/ds-php-fpm:latest
-            dalso/ds-php-fpm:${{ steps.version.outputs.tag }}
+            svrforum/ds-php-fpm:8.5
+            svrforum/ds-php-fpm:latest
+            svrforum/ds-php-fpm:${{ steps.version.outputs.tag }}
 
       - name: Build and push Nginx
         uses: docker/build-push-action@v6
@@ -48,6 +48,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            dalso/ds-nginx:1.28-alpine
-            dalso/ds-nginx:latest
-            dalso/ds-nginx:${{ steps.version.outputs.tag }}
+            svrforum/ds-nginx:1.28
+            svrforum/ds-nginx:latest
+            svrforum/ds-nginx:${{ steps.version.outputs.tag }}
