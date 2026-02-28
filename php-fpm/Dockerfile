@@ -94,11 +94,6 @@ RUN { \
     echo 'session.cookie_samesite=Lax'; \
 } > /usr/local/etc/php/conf.d/php-security.ini
 
-# Redis session handler (override REDIS_SESSION_HOST env to change)
-RUN { \
-    echo 'session.save_handler=redis'; \
-    echo 'session.save_path="tcp://redis:6379"'; \
-} > /usr/local/etc/php/conf.d/session-redis.ini
 
 # error logging
 RUN { \
