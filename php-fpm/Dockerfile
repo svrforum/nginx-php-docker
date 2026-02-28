@@ -54,23 +54,24 @@ RUN set -eux; \
     err="$(php --version 3>&1 1>&2 2>&3)"; \
     [ -z "$err" ]
 
-# set recommended OPcache settings (tuned for CMS/web app workloads)
-RUN set -eux; \
-    { \
-        echo 'opcache.memory_consumption=256'; \
-        echo 'opcache.interned_strings_buffer=16'; \
-        echo 'opcache.max_accelerated_files=20000'; \
-        echo 'opcache.revalidate_freq=60'; \
-        echo 'opcache.fast_shutdown=1'; \
-        echo 'opcache.enable=1'; \
-        echo 'opcache.enable_cli=0'; \
-        echo 'opcache.jit=tracing'; \
-        echo 'opcache.jit_buffer_size=128M'; \
-        echo 'opcache.save_comments=1'; \
-        echo 'opcache.validate_timestamps=1'; \
-    } > /usr/local/etc/php/conf.d/opcache-recommended.ini
+# OPcache settings (tuned for CMS/web app workloads)
+RUN { \
+    echo 'opcache.memory_consumption=256'; \
+    echo 'opcache.interned_strings_buffer=16'; \
+    echo 'opcache.max_accelerated_files=20000'; \
+    echo 'opcache.revalidate_freq=60'; \
+    echo 'opcache.fast_shutdown=1'; \
+    echo 'opcache.enable=1'; \
+    echo 'opcache.enable_cli=0'; \
+    echo 'opcache.jit=tracing'; \
+    echo 'opcache.jit_buffer_size=128M'; \
+    echo 'opcache.save_comments=1'; \
+    echo 'opcache.validate_timestamps=1'; \
+    echo 'opcache.huge_code_pages=0'; \
+    echo 'opcache.file_update_protection=0'; \
+} > /usr/local/etc/php/conf.d/opcache-recommended.ini
 
-# PHP performance settings for CMS workloads
+# PHP performance & upload settings
 RUN { \
     echo 'realpath_cache_size=4096K'; \
     echo 'realpath_cache_ttl=600'; \
@@ -78,10 +79,28 @@ RUN { \
     echo 'post_max_size=64M'; \
     echo 'memory_limit=256M'; \
     echo 'max_execution_time=300'; \
+    echo 'max_input_time=300'; \
     echo 'max_input_vars=5000'; \
+    echo 'output_buffering=4096'; \
+    echo 'zlib.output_compression=On'; \
 } > /usr/local/etc/php/conf.d/php-performance.ini
 
-# configure error logging
+# security settings
+RUN { \
+    echo 'expose_php=Off'; \
+    echo 'session.cookie_httponly=1'; \
+    echo 'session.cookie_secure=1'; \
+    echo 'session.use_strict_mode=1'; \
+    echo 'session.cookie_samesite=Lax'; \
+} > /usr/local/etc/php/conf.d/php-security.ini
+
+# Redis session handler (override REDIS_SESSION_HOST env to change)
+RUN { \
+    echo 'session.save_handler=redis'; \
+    echo 'session.save_path="tcp://redis:6379"'; \
+} > /usr/local/etc/php/conf.d/session-redis.ini
+
+# error logging
 RUN { \
     echo 'error_reporting = E_ERROR | E_WARNING | E_PARSE | E_CORE_ERROR | E_CORE_WARNING | E_COMPILE_ERROR | E_COMPILE_WARNING | E_RECOVERABLE_ERROR'; \
     echo 'display_errors = Off'; \
@@ -93,3 +112,12 @@ RUN { \
     echo 'ignore_repeated_source = Off'; \
     echo 'html_errors = Off'; \
 } > /usr/local/etc/php/conf.d/error-logging.ini
+
+# PHP-FPM pool tuning (prevent memory leaks in long-running CMS processes)
+RUN sed -i \
+    -e 's/^pm.max_children.*/pm.max_children = 50/' \
+    -e 's/^pm.start_servers.*/pm.start_servers = 5/' \
+    -e 's/^pm.min_spare_servers.*/pm.min_spare_servers = 5/' \
+    -e 's/^pm.max_spare_servers.*/pm.max_spare_servers = 35/' \
+    /usr/local/etc/php-fpm.d/www.conf && \
+    echo 'pm.max_requests = 500' >> /usr/local/etc/php-fpm.d/www.conf
