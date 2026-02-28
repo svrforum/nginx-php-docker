@@ -5,15 +5,23 @@ on:
     tags:
       - "v*"
 
+env:
+  PHP_FPM_IMAGE: svrforum/ds-php-fpm
+  NGINX_IMAGE: svrforum/ds-nginx
+
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+  build-php-fpm:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -24,30 +32,148 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract version from tag
-        id: version
-        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Extract metadata
+        id: meta
+        run: |
+          PLATFORM_SLUG=$(echo "${{ matrix.platform }}" | tr '/' '-')
+          echo "platform_slug=${PLATFORM_SLUG}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push PHP-FPM
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: php-fpm/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            svrforum/ds-php-fpm:8.5
-            svrforum/ds-php-fpm:latest
-            svrforum/ds-php-fpm:${{ steps.version.outputs.tag }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.PHP_FPM_IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
-      - name: Build and push Nginx
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-fpm-digest-${{ steps.meta.outputs.platform_slug }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build-nginx:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          PLATFORM_SLUG=$(echo "${{ matrix.platform }}" | tr '/' '-')
+          echo "platform_slug=${PLATFORM_SLUG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: nginx/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            svrforum/ds-nginx:1.28
-            svrforum/ds-nginx:latest
-            svrforum/ds-nginx:${{ steps.version.outputs.tag }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.NGINX_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: nginx-digest-${{ steps.meta.outputs.platform_slug }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-php-fpm:
+    runs-on: ubuntu-latest
+    needs: build-php-fpm
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: php-fpm-digest-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.PHP_FPM_IMAGE }}:8.5 \
+            -t ${{ env.PHP_FPM_IMAGE }}:latest \
+            -t ${{ env.PHP_FPM_IMAGE }}:${{ steps.version.outputs.tag }} \
+            $(printf '${{ env.PHP_FPM_IMAGE }}@sha256:%s ' *)
+
+  merge-nginx:
+    runs-on: ubuntu-latest
+    needs: build-nginx
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: nginx-digest-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.NGINX_IMAGE }}:1.28 \
+            -t ${{ env.NGINX_IMAGE }}:latest \
+            -t ${{ env.NGINX_IMAGE }}:${{ steps.version.outputs.tag }} \
+            $(printf '${{ env.NGINX_IMAGE }}@sha256:%s ' *)
