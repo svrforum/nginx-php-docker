@@ -56,7 +56,6 @@ RUN set -eux; \
 
 # set recommended OPcache settings (tuned for CMS/web app workloads)
 RUN set -eux; \
-    docker-php-ext-enable opcache; \
     { \
         echo 'opcache.memory_consumption=256'; \
         echo 'opcache.interned_strings_buffer=16'; \
