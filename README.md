@@ -61,8 +61,8 @@ chmod +x build_and_push.sh
 GitHub에서 릴리즈를 생성하면 자동으로 멀티 플랫폼 이미지가 빌드되어 Docker Hub에 푸시됩니다.
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v2026.03.01
+git push origin v2026.03.01
 ```
 
 ## 프로젝트 구조
