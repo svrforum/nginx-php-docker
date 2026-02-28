@@ -1,14 +1,12 @@
-FROM php:8.4-fpm-alpine
+FROM php:8.5-fpm-alpine
 
-# persistent dependencies and iconv fix
+# persistent dependencies
 RUN set -eux; \
     apk add --no-cache \
         bash \
         ghostscript \
         imagemagick \
-        ffmpeg \
-        gnu-libiconv
-ENV LD_PRELOAD /usr/lib/preloadable_libiconv.so php
+        ffmpeg
 
 # install the PHP extensions we need
 RUN set -eux; \
@@ -56,19 +54,33 @@ RUN set -eux; \
     err="$(php --version 3>&1 1>&2 2>&3)"; \
     [ -z "$err" ]
 
-# set recommended PHP.ini settings
+# set recommended OPcache settings (tuned for CMS/web app workloads)
 RUN set -eux; \
     docker-php-ext-enable opcache; \
     { \
-        echo 'opcache.memory_consumption=128'; \
-        echo 'opcache.interned_strings_buffer=8'; \
-        echo 'opcache.max_accelerated_files=4000'; \
-        echo 'opcache.revalidate_freq=2'; \
+        echo 'opcache.memory_consumption=256'; \
+        echo 'opcache.interned_strings_buffer=16'; \
+        echo 'opcache.max_accelerated_files=20000'; \
+        echo 'opcache.revalidate_freq=60'; \
         echo 'opcache.fast_shutdown=1'; \
         echo 'opcache.enable=1'; \
-        echo 'opcache.jit_buffer_size=100M'; \
+        echo 'opcache.enable_cli=0'; \
         echo 'opcache.jit=tracing'; \
+        echo 'opcache.jit_buffer_size=128M'; \
+        echo 'opcache.save_comments=1'; \
+        echo 'opcache.validate_timestamps=1'; \
     } > /usr/local/etc/php/conf.d/opcache-recommended.ini
+
+# PHP performance settings for CMS workloads
+RUN { \
+    echo 'realpath_cache_size=4096K'; \
+    echo 'realpath_cache_ttl=600'; \
+    echo 'upload_max_filesize=64M'; \
+    echo 'post_max_size=64M'; \
+    echo 'memory_limit=256M'; \
+    echo 'max_execution_time=300'; \
+    echo 'max_input_vars=5000'; \
+} > /usr/local/etc/php/conf.d/php-performance.ini
 
 # configure error logging
 RUN { \

@@ -5,6 +5,7 @@
     notifempty
     dateext
     dateformat -%Y-%m-%d
+    sharedscripts
     postrotate
         YEAR=$(date +%Y)
         MONTH=$(date +%m)
