@@ -1,6 +1,6 @@
 # nginx-php-docker
 
-CMS/웹앱(WordPress, Rhymix 등) 워크로드에 최적화된 PHP-FPM + Nginx Docker 이미지.
+WordPress, Rhymix 등 CMS/웹앱 운영을 위한 NPM(Nginx + PHP-FPM + MariaDB) 스택 Docker 이미지.
 
 ## Docker 이미지
 
@@ -8,6 +8,8 @@ CMS/웹앱(WordPress, Rhymix 등) 워크로드에 최적화된 PHP-FPM + Nginx D
 |--------|------|------|
 | `svrforum/ds-php-fpm` | `8.5` | PHP 8.5 FPM + OPcache/JIT 최적화 |
 | `svrforum/ds-nginx` | `1.28` | Nginx 1.28 + logrotate |
+
+MariaDB는 공식 이미지(`mariadb:11`)를 함께 사용합니다.
 
 ### 지원 플랫폼
 
@@ -29,22 +31,42 @@ CMS/웹앱(WordPress, Rhymix 등) 워크로드에 최적화된 PHP-FPM + Nginx D
 
 ## 사용법
 
-### docker-compose.yml 예시
+### NPM 스택 docker-compose.yml 예시
+
+WordPress나 Rhymix 같은 CMS를 운영할 때 Nginx + PHP-FPM + MariaDB를 조합하여 사용합니다.
 
 ```yaml
 services:
-  php-fpm:
-    image: svrforum/ds-php-fpm:8.5
-    volumes:
-      - ./src:/var/www/html
-
   nginx:
     image: svrforum/ds-nginx:1.28
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./src:/var/www/html
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php-fpm
+
+  php-fpm:
+    image: svrforum/ds-php-fpm:8.5
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - mariadb
+
+  mariadb:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: changeme
+      MYSQL_DATABASE: app
+      MYSQL_USER: app
+      MYSQL_PASSWORD: changeme
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:
 ```
 
 ## 빌드
