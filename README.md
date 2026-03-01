@@ -34,39 +34,60 @@ MariaDB는 공식 이미지(`mariadb:11`)를 함께 사용합니다.
 ### NPM 스택 docker-compose.yml 예시
 
 WordPress나 Rhymix 같은 CMS를 운영할 때 Nginx + PHP-FPM + MariaDB를 조합하여 사용합니다.
+`config/` 디렉토리에 포함된 샘플 설정 파일을 복사하여 프로젝트에 맞게 수정하세요.
 
 ```yaml
 services:
   nginx:
     image: svrforum/ds-nginx:1.28
+    restart: always
     ports:
       - "80:80"
-      - "443:443"
+    environment:
+      - TZ=Asia/Seoul
     volumes:
-      - ./src:/var/www/html
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./data/www:/var/www/html
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./config/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./data/logs:/var/log/nginx
     depends_on:
       - php-fpm
 
   php-fpm:
     image: svrforum/ds-php-fpm:8.5
+    restart: always
+    environment:
+      - TZ=Asia/Seoul
     volumes:
-      - ./src:/var/www/html
+      - ./data/www:/var/www/html
+      - ./config/php/php.ini:/usr/local/etc/php/php.ini
+      - ./config/php/www.conf:/usr/local/etc/php-fpm.d/www.conf
     depends_on:
       - mariadb
 
   mariadb:
     image: mariadb:11
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: changeme
-      MYSQL_DATABASE: app
-      MYSQL_USER: app
-      MYSQL_PASSWORD: changeme
+      - TZ=Asia/Seoul
+      - MYSQL_ROOT_PASSWORD=changeme
+      - MYSQL_DATABASE=app
+      - MYSQL_USER=app
+      - MYSQL_PASSWORD=changeme
     volumes:
-      - db_data:/var/lib/mysql
+      - ./data/db:/var/lib/mysql
+```
 
-volumes:
-  db_data:
+### 설정 파일 구조
+
+```
+config/
+├── php/
+│   ├── php.ini       # PHP 설정 (OPcache, 업로드, 보안 등)
+│   └── www.conf      # PHP-FPM 풀 설정 (프로세스 관리)
+└── nginx/
+    ├── nginx.conf    # Nginx 메인 설정
+    └── default.conf  # 서버 블록 (PHP-FPM 연동)
 ```
 
 ## 빌드
@@ -90,9 +111,13 @@ git push origin v2026.03.01
 ## 프로젝트 구조
 
 ```
-php-fpm/Dockerfile          # PHP-FPM 이미지
-nginx/Dockerfile            # Nginx 이미지
-nginx/logrotate/nginx       # 로그 로테이션 설정
-build_and_push.sh           # 로컬 빌드 스크립트
-.github/workflows/release.yml  # CI/CD 워크플로우
+php-fpm/Dockerfile              # PHP-FPM 이미지
+nginx/Dockerfile                # Nginx 이미지
+nginx/logrotate/nginx           # 로그 로테이션 설정
+config/php/php.ini              # PHP 샘플 설정
+config/php/www.conf             # PHP-FPM 풀 샘플 설정
+config/nginx/nginx.conf         # Nginx 메인 샘플 설정
+config/nginx/default.conf       # Nginx 서버 블록 샘플 설정
+build_and_push.sh               # 로컬 빌드 스크립트
+.github/workflows/release.yml   # CI/CD 워크플로우
 ```
